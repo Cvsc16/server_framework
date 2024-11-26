@@ -58,15 +58,15 @@ CREATE TABLE users_domains_tbl (
    ```properties
    object DatabaseFactory {
     fun init() {
-        Database.connect(
+        Database.connect (
             url = "jdbc:mysql://localhost:3306/framework_software_db",
             driver = "com.mysql.cj.jdbc.Driver",
             user = "root",
             password = "framework"
-        )
-    }
-}
-   ```
+         )
+      }
+   }
+
 4. Compile o projeto:
    ```bash
    ./gradlew build
