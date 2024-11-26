@@ -9,10 +9,12 @@ import io.ktor.server.auth.jwt.*
 import io.ktor.server.plugins.contentnegotiation.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
+import org.example.db.DatabaseFactory
 
 fun main(args: Array<String>): Unit = io.ktor.server.netty.EngineMain.main(args)
 
 fun Application.module() {
+    DatabaseFactory.init()
     install(ContentNegotiation) {
         gson { }
     }
@@ -21,14 +23,12 @@ fun Application.module() {
 }
 
 fun Application.configureSecurity() {
-    val secret = "jwt_secret_key" // Substitua com uma chave segura
-    val issuer = "your_application"
-    val audience = "your_audience"
-    var realm = "your_realm"
+    val secret = "jwt_secret_key"
+    val issuer = "server_framework"
+    val audience = "flutter_framework"
 
     install(Authentication) {
         jwt("auth-jwt") {
-            realm = realm
             verifier(
                 JWT
                     .require(Algorithm.HMAC256(secret))
