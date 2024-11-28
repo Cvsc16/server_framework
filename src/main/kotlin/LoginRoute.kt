@@ -8,6 +8,10 @@ import io.ktor.server.application.*
 import io.ktor.server.request.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
+import org.example.factories.BCryptValidationStrategy
+import org.example.factories.DefaultUserFactory
+import org.example.factories.PasswordValidationStrategy
+import org.example.factories.UserFactory
 import org.example.models.*
 import org.jetbrains.exposed.sql.and
 import org.jetbrains.exposed.sql.select
@@ -44,19 +48,6 @@ fun generatePasswordHash(rawPassword: String, userIdentifier: String): String {
     return hashedPassword
 }
 
-// Função para verificar senha com base no banco
-fun isPasswordValid(rawPassword: String, userIdentifier: String, hashedPasswordFromDB: String): Boolean {
-    val salt = "gate${userIdentifier}keepr"
-    val saltedPassword = salt + rawPassword
-    println("Verificando senha para o usuário: $userIdentifier")
-    println("Salt gerado: $salt")
-    println("Senha concatenada com salt: $saltedPassword")
-    println("Hash armazenado no banco: $hashedPasswordFromDB")
-    val isValid = BCrypt.checkpw(saltedPassword, hashedPasswordFromDB)
-    println("Resultado da verificação de senha: $isValid")
-    return isValid
-}
-
 // Ajuste da função para buscar o usuário no banco
 fun findUserInDatabase(userIdentifier: String, rawPassword: String, domain: String): User? {
     println("Buscando usuário no banco...")
@@ -65,8 +56,13 @@ fun findUserInDatabase(userIdentifier: String, rawPassword: String, domain: Stri
 
         if (user != null) {
             println("Usuário encontrado: ${user[Users.identifier]}")
+            val passwordValidationStrategy: PasswordValidationStrategy = BCryptValidationStrategy()
             val hashedPasswordFromDB = user[Users.passwordHash]
-            val isPasswordCorrect = isPasswordValid(rawPassword, userIdentifier, hashedPasswordFromDB)
+            val isPasswordCorrect = passwordValidationStrategy.isValid(
+                rawPassword = rawPassword,
+                userIdentifier = userIdentifier,
+                hashedPassword = hashedPasswordFromDB
+            )
 
             if (isPasswordCorrect) {
                 println("Senha válida. Verificando domínio associado...")
@@ -79,7 +75,8 @@ fun findUserInDatabase(userIdentifier: String, rawPassword: String, domain: Stri
 
                 if (domainExists) {
                     println("Domínio válido: $domain")
-                    return@transaction User(
+                    val userFactory: UserFactory = DefaultUserFactory()
+                    return@transaction userFactory.createUser(
                         id = user[Users.id].toString(),
                         username = user[Users.identifier],
                         email = "user@example.com"
