@@ -19,6 +19,64 @@ Este projeto é um servidor API construído com o Framework Ktor e linguagem Kot
 
 ---
 
+## Padrões de Projeto Utilizados
+
+Este projeto implementa os seguintes **padrões de projeto**:
+
+1. **Singleton**:
+   - **Onde**: `DatabaseFactory`
+   - **Descrição**: Garante que a conexão com o banco de dados seja criada apenas uma vez durante o ciclo de vida da aplicação, centralizando a configuração e economizando recursos.
+   - **Exemplo**:
+     ```kotlin
+     object DatabaseFactory {
+         fun init() {
+             Database.connect(
+                 url = "jdbc:mysql://localhost:3306/framework_software_db",
+                 driver = "com.mysql.cj.jdbc.Driver",
+                 user = "root",
+                 password = "framework"
+             )
+         }
+     }
+     ```
+
+2. **Factory Method**:
+   - **Onde**: `UserFactory`
+   - **Descrição**: Fornece uma interface para criar objetos do tipo `User`. Permite a abstração da lógica de criação, facilitando futuras alterações no processo de instância.
+   - **Exemplo**:
+     ```kotlin
+     interface UserFactory {
+         fun createUser(id: String, username: String, email: String): User
+     }
+
+     class DefaultUserFactory : UserFactory {
+         override fun createUser(id: String, username: String, email: String): User {
+             println("Criando usuário com Factory")
+             return User(id, username, email)
+         }
+     }
+     ```
+
+3. **Strategy**:
+   - **Onde**: Validação de senha (`PasswordValidationStrategy`)
+   - **Descrição**: Permite que diferentes estratégias de validação de senha sejam implementadas. No projeto, o padrão é utilizado para encapsular a lógica de validação de senhas usando o algoritmo BCrypt.
+   - **Exemplo**:
+     ```kotlin
+     interface PasswordValidationStrategy {
+         fun isValid(rawPassword: String, userIdentifier: String, hashedPassword: String): Boolean
+     }
+
+     class BCryptValidationStrategy : PasswordValidationStrategy {
+         override fun isValid(rawPassword: String, userIdentifier: String, hashedPassword: String): Boolean {
+             val salt = "gate${userIdentifier}keepr"
+             val saltedPassword = salt + rawPassword
+             return BCrypt.checkpw(saltedPassword, hashedPassword)
+         }
+     }
+     ```
+
+---
+
 ## Configuração do Banco de Dados
 Execute os seguintes scripts SQL para criar as tabelas necessárias:
 
