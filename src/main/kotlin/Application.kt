@@ -9,12 +9,12 @@ import io.ktor.server.auth.jwt.*
 import io.ktor.server.plugins.contentnegotiation.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
-import org.example.db.DatabaseFactory
+import org.example.db.DatabaseManager
 
 fun main(args: Array<String>): Unit = io.ktor.server.netty.EngineMain.main(args)
 
 fun Application.module() {
-    DatabaseFactory.init()
+    DatabaseManager.init()
     install(ContentNegotiation) {
         gson { }
     }
