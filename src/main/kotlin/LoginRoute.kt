@@ -8,6 +8,7 @@ import io.ktor.server.application.*
 import io.ktor.server.request.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
+import org.example.facades.AuthFacade
 import org.example.factories.BCryptValidationStrategy
 import org.example.factories.DefaultUserFactory
 import org.example.factories.PasswordValidationStrategy
@@ -48,55 +49,15 @@ fun generatePasswordHash(rawPassword: String, userIdentifier: String): String {
     return hashedPassword
 }
 
-// Ajuste da função para buscar o usuário no banco
-fun findUserInDatabase(userIdentifier: String, rawPassword: String, domain: String): User? {
-    println("Buscando usuário no banco...")
-    return transaction {
-        val user = Users.select { Users.identifier eq userIdentifier }.singleOrNull()
-
-        if (user != null) {
-            println("Usuário encontrado: ${user[Users.identifier]}")
-            val passwordValidationStrategy: PasswordValidationStrategy = BCryptValidationStrategy()
-            val hashedPasswordFromDB = user[Users.passwordHash]
-            val isPasswordCorrect = passwordValidationStrategy.isValid(
-                rawPassword = rawPassword,
-                userIdentifier = userIdentifier,
-                hashedPassword = hashedPasswordFromDB
-            )
-
-            if (isPasswordCorrect) {
-                println("Senha válida. Verificando domínio associado...")
-                val domainExists = UsersDomains
-                    .innerJoin(Domains)
-                    .select {
-                        (UsersDomains.userId eq user[Users.id]) and (Domains.domain eq domain)
-                    }
-                    .count() > 0
-
-                if (domainExists) {
-                    println("Domínio válido: $domain")
-                    val userFactory: UserFactory = DefaultUserFactory()
-                    return@transaction userFactory.createUser(
-                        id = user[Users.id].toString(),
-                        username = user[Users.identifier],
-                        email = "user@example.com"
-                    )
-                } else {
-                    println("Domínio inválido: $domain")
-                }
-            } else {
-                println("Senha inválida para o usuário: $userIdentifier")
-            }
-        } else {
-            println("Usuário não encontrado: $userIdentifier")
-        }
-
-        null
-    }
-}
-
 // Função para configurar a rota de login
 fun Routing.loginRoute() {
+    val authFacade = AuthFacade(
+        jwtSecret = "jwt_secret_key",
+        jwtIssuer = "server_framework",
+        jwtAudience = "flutter_framework"
+    )
+
+
     post("/v1/login") {
         println("Recebendo requisição de login...")
         val encryptedContent = call.receive<String>()
@@ -105,27 +66,16 @@ fun Routing.loginRoute() {
         val decryptedContent = decryptAES(encryptedContent, "changeit key2024", "1234567890123456")
 
         val loginRequest = Gson().fromJson(decryptedContent, LoginRequest::class.java)
-        val userIdentifier = loginRequest.auth.user_identifier
-        val rawPassword = loginRequest.auth.user_password
-        val domain = loginRequest.domain
+        val token = authFacade.login(
+            userIdentifier = loginRequest.auth.user_identifier,
+            rawPassword = loginRequest.auth.user_password,
+            domain = loginRequest.domain
+        )
 
-//        Caso precise gerar o Hash para uma senha:
-//        generatePasswordHash(rawPassword, userIdentifier)
+//                Caso precise gerar o Hash para uma senha:
+//        generatePasswordHash(loginRequest.auth.user_password, loginRequest.auth.user_identifier)
 
-        println("Iniciando validação para o usuário: $userIdentifier no domínio: $domain")
-
-        val user = findUserInDatabase(userIdentifier, rawPassword, domain)
-
-        if (user != null) {
-            println("Usuário validado com sucesso. Gerando token JWT...")
-            val token = JWT.create()
-                .withAudience("flutter_framework")
-                .withIssuer("server_framework")
-                .withClaim("userId", user.id)
-                .withClaim("username", user.username)
-                .withExpiresAt(Date(System.currentTimeMillis() + 7 * 24 * 60 * 60 * 1000)) // Expira em 1 semana
-                .sign(Algorithm.HMAC256("jwt_secret_key"))
-
+        if (token != null) {
             println("Token gerado: $token")
             call.respond(HttpStatusCode.Created, token)
         } else {
